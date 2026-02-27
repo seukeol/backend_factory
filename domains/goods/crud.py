@@ -19,7 +19,7 @@ async def edit_good(db: AsyncSession, data: GoodEdit) -> None:
     good = await db.get(Good, data.article)
     if not good:
         raise ValueError(f"Товар с article={data.article} не найден")
-    for key, value in data.model_dump().items():
+    for key, value in data.model_dump(exclude_none=True).items():
         setattr(good, key, value)
     await db.commit()
     await db.refresh(good)

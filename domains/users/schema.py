@@ -16,6 +16,9 @@ class UserFilter(BaseModel):
     section_id: int | None=None
     group_name: str | None=None
 
+class UserLogin(BaseModel):
+    login: str | None = None
+    password: str | None = None
 
 class UserCreate(UserBase):
     pass

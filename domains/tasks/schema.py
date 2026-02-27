@@ -11,6 +11,11 @@ class TaskBase(BaseModel):
     group_name: str
     deadline: datetime
 
+class TaskTopup(BaseModel):
+    id: int
+    amount_done: int
+    amount_needed: int
+
 class TaskFilter(BaseModel):
     id: int | None = None
     good_article: str | None=None
