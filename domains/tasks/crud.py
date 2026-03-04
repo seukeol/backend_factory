@@ -17,9 +17,9 @@ async def get_tasks(db: AsyncSession, filter: TaskFilter) -> list[Task]:
     if filter.good_article:
         query = query.where(Task.good_article == filter.good_article)
     if filter.section_id:
-        query = query.where(Task.section_id == filter.section_id)
+        query = query.where(Task.department == filter.department)
     if filter.group_name:
-        query = query.where(Task.group_name == filter.group_name)
+        query = query.where(Task.post == filter.post)
     if filter.deadline:
         query = query.where(Task.deadline == filter.deadline)
     result = await db.execute(query)
@@ -34,8 +34,7 @@ async def edit_task(db: AsyncSession, data: TaskEdit) -> None:
     await db.commit()
     await db.refresh(task)
 
-
-async def topup_task(db: AsyncSession, data: TaskTopup) -> None:
+async def topup_task(db: AsyncSession, data: TaskTopup):
     task = await db.get(Task, data.id)
     if not task:
         raise ValueError(f"Задачи с id={data.id} не найден")

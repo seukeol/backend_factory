@@ -9,7 +9,7 @@ class Task(Base):
     good_article: Mapped[str] = mapped_column(String(32)) #foreign key
     amount_needed: Mapped[int] = mapped_column(SmallInteger())
     amount_done: Mapped[int] = mapped_column(SmallInteger())
-    section_id: Mapped[int] = mapped_column(SmallInteger())
-    group_name: Mapped[str] = mapped_column(String(32))
+    department: Mapped[str] = mapped_column(String(32))
+    post: Mapped[str] = mapped_column(String(32))
     result: Mapped[bool] = mapped_column(Boolean(), default=False)
     deadline: Mapped[datetime] = mapped_column(Date())

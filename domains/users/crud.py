@@ -18,9 +18,7 @@ async def get_users(db: AsyncSession, filter: UserFilter) -> list[User]:
     if filter.login:
         query = query.where(User.login == filter.login)
     if filter.section_id:
-        query = query.where(User.section_id == filter.section_id)
-    if filter.group_name:
-        query = query.where(User.group_name == filter.group_name)
+        query = query.where(User.department == filter.department)
     result = await db.execute(query)
     return list(result.scalars().all())
 
