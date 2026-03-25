@@ -21,4 +21,3 @@ class GoodComponent(Base):
     good_article: Mapped[int] = mapped_column(Integer())
     detail_article: Mapped[int] = mapped_column(Integer())
     quantity: Mapped[int] = mapped_column(Integer())
-    color: Mapped[str | None] = mapped_column(String(32), nullable=True)

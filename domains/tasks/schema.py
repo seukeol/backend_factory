@@ -7,7 +7,6 @@ class TaskCreate(BaseModel):
     detail_article: int
     detail_name: str
     amount_needed: int
-    available: int
     department: str | None = None
     post: int | None = None
     priority: int | None = None
@@ -38,10 +37,9 @@ class TaskGetFilter(BaseModel):
     department: str | None = None
     post: int | None = None
     priority: int | None = None
-    available: int | None = None
     deadline: date | None = None
 
 
 class TaskPotentialOrder(BaseModel):
-    order_id: int
-    detail_article: int
+    good_article: int
+    quantity: int

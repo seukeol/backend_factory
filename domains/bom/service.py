@@ -8,7 +8,7 @@ async def _count_availability(db: AsyncSession, detail_article: int):
     minimum = 2**31 - 1
     detail_components = await get_components(db, detail_article)
     for detail_component in detail_components:
-        detail_component_info = await get_detail(db, detail_component)
+        detail_component_info = await get_detail(db, detail_component.child_article)
         minimum = min(minimum, detail_component_info.stock / detail_component.quantity)
     return minimum
 
@@ -30,15 +30,14 @@ async def recount_availability(db: AsyncSession, detail_article: int) -> None:
         await _recount_parents(db, component.child_article)
 
 
-async def get_all_parents_list(db: AsyncSession, detail_article: int, quantity: float = 1) -> list:
-    detail_parents = await get_parents(db, detail_article)
-    if not detail_parents:
+async def get_all_components_list(db: AsyncSession, detail_article: int, quantity: float = 1) -> list:
+    detail_components = await get_components(db, detail_article)
+    if not detail_components:
         return []
     result = []
-    for parent in detail_parents:
-        parent_detail = await get_detail(db, parent.parent_article)
-        accumulated_quantity = quantity * parent_detail.quantity
-        result.append((parent_detail, accumulated_quantity))
-        result += await get_all_parents_list(db, parent.parent_article, accumulated_quantity)
+    for component in detail_components:
+        component_detail = await get_detail(db, component.child_article)
+        accumulated_quantity = quantity * component.quantity
+        result.append((component_detail, accumulated_quantity))
+        result += await get_all_components_list(db, component.child_article, accumulated_quantity)
     return result
-

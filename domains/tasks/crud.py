@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from .model import Task
 from .schema import TaskCreate, TaskGetFilter, TaskTopup, TaskEdit
-
+from domains.details.model import Detail
 
 async def create_task(db: AsyncSession, item: TaskCreate) -> Task:
     task = Task(**item.model_dump())
@@ -17,20 +17,27 @@ async def get_task(db: AsyncSession, id: int) -> Task | None:
 
 
 async def get_tasks(db: AsyncSession, filter: TaskGetFilter) -> list[Task]:
-    query = select(Task).where(Task.available == True)
+    query = (
+        select(Task)
+        .join(Detail, Task.detail_article == Detail.article)
+        .where(Detail.availability > 0)
+    )
     if filter.order_id:
         query = query.where(Task.order_id == filter.order_id)
     if filter.detail_article:
         query = query.where(Task.detail_article == filter.detail_article)
-    if filter.department:
-        query = query.where(Task.department == filter.department)
+    #if filter.department:
+    #    query = query.where(Task.department == filter.department)
     if filter.post:
+        print("filtering by post:", filter.post)
         query = query.where(Task.post == filter.post)
     if filter.priority:
         query = query.where(Task.priority == filter.priority)
     if filter.deadline:
         query = query.where(Task.deadline == filter.deadline)
+
     result = await db.execute(query)
+    print("RESULT:", result)
     return list(result.scalars().all())
 
 

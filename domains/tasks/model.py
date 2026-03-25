@@ -17,5 +17,4 @@ class Task(Base):
     post: Mapped[int | None] = mapped_column(Integer(), nullable=True)
     priority: Mapped[int] = mapped_column(Integer(), default=1)
     result: Mapped[bool] = mapped_column(Boolean(), default=False)
-    available: Mapped[int] = mapped_column(Integer(), default=0)
     deadline: Mapped[date | None] = mapped_column(Date(), nullable=True)

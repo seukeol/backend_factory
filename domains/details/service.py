@@ -42,6 +42,9 @@ async def get_components(db: AsyncSession, parent_article: int):
     return await crud.get_components(db, parent_article)
 
 
+async def get_detail_posts(db: AsyncSession, detail_article: int):
+    return await crud.get_detail_posts(db, detail_article)
+
 async def get_parents(db: AsyncSession, child_article: int):
     return await crud.get_parents(db, child_article)
 

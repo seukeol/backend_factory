@@ -48,20 +48,20 @@ async def delete_detail(db: AsyncSession, article: int) -> None:
 
 
 async def topup_detail(db: AsyncSession, data: DetailTopup) -> Detail:
-    detail = await db.get(Detail, data.id)
+    detail = await db.get(Detail, data.article)
     if not detail:
         raise ValueError(f"Деталь с article={data.article} не найдена")
-    detail.current_stock += data.amount
+    detail.stock += data.amount
     await db.commit()
     await db.refresh(detail)
     return detail
 
 
 async def topdown_detail(db: AsyncSession, data: DetailTopup) -> Detail:
-    detail = await db.get(Detail, data.id)
+    detail = await db.get(Detail, data.article)
     if not detail:
         raise ValueError(f"Деталь с article={data.article} не найдена")
-    detail.current_stock -= data.amount
+    detail.stock -= data.amount
     await db.commit()
     await db.refresh(detail)
     return detail
@@ -93,6 +93,12 @@ async def get_components(db: AsyncSession, parent_article: int) -> list[DetailCo
     result = await db.execute(query)
     return list(result.scalars().all())
 
+
+async def get_detail_posts(db: AsyncSession, article: int) -> list:
+    detail = await db.get(Detail, article)
+    if not detail:
+        raise
+    return [detail.post, detail.post_alt]
 
 async def get_parents(db: AsyncSession, child_article: int) -> list[DetailComponent]:
     """В каких деталях используется эта деталь"""

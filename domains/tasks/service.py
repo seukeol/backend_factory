@@ -1,18 +1,23 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from . import crud
 from .model import Task
-from .schema import TaskEdit, TaskGetFilter, TaskTopup
+from .schema import TaskEdit, TaskGetFilter, TaskTopup, TaskCreate
 from domains.orders.service import topup_order
 from domains.orders.schema import OrderTopup
 from domains.details.schema import DetailTopup
-from domains.details.service import topup_detail, get_parents
-from domains.bom.service import recount_availability, get_all_parents_list, _count_availability
+from domains.details.service import topup_detail, get_parents, get_detail_posts, update_availability
+from domains.bom.service import recount_availability, get_all_components_list, _count_availability
 from ..details.crud import topdown_detail
 from ..goods.crud import get_good_components
 from domains.posts.crud import get_posts
 
 async def get_task(db: AsyncSession, id: int) -> Task | None:
     return await crud.get_task(db, id)
+
+
+async def create_task(db: AsyncSession, data: TaskCreate) -> Task:
+    await recount_availability(db, data.detail_article)
+    return await crud.create_task(db, data)
 
 
 async def get_tasks(db: AsyncSession, filter: TaskGetFilter) -> list[Task]:
@@ -37,31 +42,33 @@ async def topup_task(db: AsyncSession, data: TaskTopup) -> Task:
     else:
         detail_data = DetailTopup(article=task.detail_article, amount=data.amount_done)
         await topup_detail(db, detail_data)
+
     detail_parents = await get_parents(db, task.detail_article)
     for parent in detail_parents:
-        topdown_data = DetailTopup(article=parent.detail_article, amount=parent.quantity*data.amount_done)
+        topdown_data = DetailTopup(article=parent.child_article, amount=parent.quantity*data.amount_done)
         await topdown_detail(db, topdown_data)
     await recount_availability(db, task.detail_article)
     return task
 
 
 async def get_potential_order_tasks(db: AsyncSession, data) -> list:
-    good_id = data.good_id
+    article = data.good_article
     quantity = data.quantity
-
-    components = await get_good_components(db, good_id)
+    components = await get_good_components(db, article)
     details = []
     result = []
     for component in components:
-        details+= await get_all_parents_list(db, component.detail_article, quantity)
+        details+= await get_all_components_list(db, component.detail_article, quantity)
     for detail in details:
+        availability = await _count_availability(db, detail[0].article)
+        await update_availability(db, detail[0].article, availability)
         task_info = {
-            'detail_article': detail[0].detail_article,
-            'detail_name': detail[0].detail_name,
-            'amount_needed': detail[1],
-            'available': await _count_availability(db, detail[0].detail_article),
+            'detail_article': detail[0].article,
+            'detail_name': detail[0].name,
+            'amount_needed': detail[1]-detail[0].stock,
+            'available': availability,
             'department': detail[0].department,
-            'posts': await get_posts(db, detail[0].department)
+            'posts': await get_detail_posts(db, detail[0].article),
         }
         result.append(task_info)
     return result
