@@ -35,7 +35,7 @@ async def edit_task(task: TaskEdit, db: AsyncSession = Depends(get_db),
 async def create_task(task: TaskCreate, db: AsyncSession = Depends(get_db),  current_user: dict = Depends(get_current_user)):
     if not task.deadline:
         task.deadline = date.today()
-    return await tasks.crud.create_task(db, task)
+    return await tasks.service.create_task(db, task)
 
 
 @router.post('/topup')

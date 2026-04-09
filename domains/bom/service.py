@@ -9,6 +9,8 @@ async def _count_availability(db: AsyncSession, detail_article: int):
     detail_components = await get_components(db, detail_article)
     for detail_component in detail_components:
         detail_component_info = await get_detail(db, detail_component.child_article)
+        print(f"DEBUG detail_component: {detail_component}")
+        print(f"DEBUG detail_component_info: {detail_component_info}")
         minimum = min(minimum, detail_component_info.stock / detail_component.quantity)
     return minimum
 

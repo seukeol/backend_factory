@@ -23,8 +23,6 @@ async def get_details(db: AsyncSession, filter: DetailGetFilter) -> list[Detail]
         query = query.where(Detail.name == filter.name)
     if filter.post:
         query = query.where(Detail.post == filter.post)
-    if filter.route:
-        query = query.where(Detail.route == filter.route)
     result = await db.execute(query)
     return list(result.scalars().all())
 
