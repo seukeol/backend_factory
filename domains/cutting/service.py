@@ -55,6 +55,9 @@ async def find_best_cutting_plan(db: AsyncSession, deficit: dict[int, float]) ->
     print("SCHEME OUTPUTS:", scheme_outputs)
 
     prob.solve()
+    print("STATUS:", prob.status, value(prob.objective))
+    for scheme_id in all_scheme_ids:
+        print(f"x_{scheme_id} =", value(x[scheme_id]))
 
     result = {
         scheme_id: int(value(x[scheme_id]))

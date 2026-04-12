@@ -33,9 +33,21 @@ async def recount_availability(db: AsyncSession, detail_article: int) -> None:
 
 
 async def get_all_components_list(db: AsyncSession, detail_article: int, quantity: float = 1) -> list:
+    from domains.cutting.crud import get_schemes_for_detail
     detail_components = await get_components(db, detail_article)
     if not detail_components:
-        return []
+        schemes = await get_schemes_for_detail(db, detail_article)
+        if not schemes:
+            return []
+        scheme = schemes[0]
+        scheme_inputs = await get_components(db, -scheme.id)
+        result = []
+        for inp in scheme_inputs:
+            input_detail = await get_detail(db, inp.child_article)
+            result.append((input_detail, inp.quantity))
+            result += await get_all_components_list(db, inp.child_article, inp.quantity)
+        return result
+
     result = []
     for component in detail_components:
         component_detail = await get_detail(db, component.child_article)

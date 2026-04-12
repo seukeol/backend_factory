@@ -5,7 +5,7 @@ from .schema import TaskEdit, TaskGetFilter, TaskTopup, TaskCreate
 from domains.orders.service import topup_order
 from domains.orders.schema import OrderTopup
 from domains.details.schema import DetailTopup
-from domains.details.service import topup_detail, get_parents, get_detail_posts, update_availability, get_components
+from domains.details.service import topup_detail, get_detail, get_detail_posts, update_availability, get_components
 from domains.bom.service import recount_availability, get_all_components_list, _count_availability
 from ..details.crud import topdown_detail
 from ..goods.crud import get_good_components
@@ -35,11 +35,9 @@ async def edit_task(db: AsyncSession, data: TaskEdit) -> None:
 async def topup_task(db: AsyncSession, data: TaskTopup) -> Task:
     task = await crud.topup_task(db, data)
 
-    # Проверка на завершение задачи
     if task.amount_done >= task.amount_needed:
         task.result = True
 
-    # Если это схема (отрицательный артикул)
     if task.detail_article < 0:
         scheme_id = -task.detail_article
         from domains.cutting.crud import get_scheme_outputs
@@ -51,9 +49,16 @@ async def topup_task(db: AsyncSession, data: TaskTopup) -> Task:
             await topup_detail(db, detail_data)
             await recount_availability(db, output.detail_article)
 
-        return task  # Важно: после схемы не продолжаем обычный топап
+        components = await get_components(db, task.detail_article)
+        for component in components:
+            topdown_data = DetailTopup(
+                article=component.child_article,
+                amount=component.quantity * data.amount_done
+            )
+            await topdown_detail(db, topdown_data)
 
-    # Обычный топап по отделам
+        return task
+
     if task.department == 'упаковка':
         order_data = OrderTopup(id=task.order_id, amount_done=data.amount_done)
         await topup_order(db, order_data)
@@ -61,16 +66,14 @@ async def topup_task(db: AsyncSession, data: TaskTopup) -> Task:
         detail_data = DetailTopup(article=task.detail_article, amount=data.amount_done)
         await topup_detail(db, detail_data)
 
-    # Топдаун по родителям для обычной детали
-    detail_parents = await get_parents(db, task.detail_article)
-    for parent in detail_parents:
+    detail_components = await get_components(db, task.detail_article)
+    for component in detail_components:
         topdown_data = DetailTopup(
-            article=parent.child_article,
-            amount=parent.quantity * data.amount_done
+            article=component.child_article,
+            amount=component.quantity * data.amount_done
         )
         await topdown_detail(db, topdown_data)
 
-    # Пересчёт доступности для обычной детали
     await recount_availability(db, task.detail_article)
 
     return task
@@ -81,7 +84,7 @@ async def get_potential_order_tasks(db: AsyncSession, data) -> list:
     quantity = data.quantity
     components = await get_good_components(db, article)
     details = []
-    result = {}  # dict вместо list, ключ — article
+    result = {}
     deficit = {}
 
     for component in components:
@@ -117,6 +120,7 @@ async def get_potential_order_tasks(db: AsyncSession, data) -> list:
         from domains.cutting.crud import get_scheme_by_id
 
         cutting_plan = await find_best_cutting_plan(db, deficit)
+        print(cutting_plan)
         for scheme_id, times in cutting_plan.items():
             scheme = await get_scheme_by_id(db, scheme_id)
             key = f"cutting_{scheme_id}"
@@ -125,9 +129,30 @@ async def get_potential_order_tasks(db: AsyncSession, data) -> list:
                 'detail_name': f"Раскрой схема №{scheme_id} ({scheme.pipe_name})",
                 'amount_needed': times,
                 'available': 0,
-                'department': 'раскрой',
+                'department': 'сварка/резка',
                 'posts': [scheme.post],
             }
+
+            scheme_inputs = await get_components(db, -scheme_id)
+            for inp in scheme_inputs:
+                if inp.child_article in deficit:  # уже покрывается схемой, пропускаем
+                    continue
+                input_detail = await get_detail(db, inp.child_article)
+                input_amount_needed = inp.quantity * times
+                availability = await _count_availability(db, inp.child_article)
+                await update_availability(db, inp.child_article, availability)
+                art = inp.child_article
+                if art in result:
+                    result[art]['amount_needed'] += input_amount_needed
+                else:
+                    result[art] = {
+                        'detail_article': art,
+                        'detail_name': input_detail.name,
+                        'amount_needed': input_amount_needed,
+                        'available': availability,
+                        'department': input_detail.department,
+                        'posts': await get_detail_posts(db, art),
+                    }
 
     return list(result.values())
 

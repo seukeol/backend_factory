@@ -37,6 +37,7 @@ class TaskGetFilter(BaseModel):
     department: str | None = None
     post: int | None = None
     priority: int | None = None
+    result: bool | None = None
     deadline: date | None = None
 
 

@@ -26,15 +26,18 @@ async def get_tasks(db: AsyncSession, filter: TaskGetFilter) -> list[Task]:
         query = query.where(Task.order_id == filter.order_id)
     if filter.detail_article:
         query = query.where(Task.detail_article == filter.detail_article)
-    #if filter.department:
-    #    query = query.where(Task.department == filter.department)
+    if filter.detail_name:
+        query = query.where(Task.detail_name == filter.detail_name)
+    if filter.department:
+        query = query.where(Task.department == filter.department)
     if filter.post:
         query = query.where(Task.post == filter.post)
     if filter.priority:
         query = query.where(Task.priority == filter.priority)
+    if filter.result:
+        query = query.where(Task.result == filter.result)
     if filter.deadline:
         query = query.where(Task.deadline == filter.deadline)
-
     result = await db.execute(query)
     return list(result.scalars().all())
 
