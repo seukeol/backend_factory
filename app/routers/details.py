@@ -38,6 +38,15 @@ async def delete_detail(article: int, db: AsyncSession = Depends(get_db),
     return await details.service.delete_detail(db, article)
 
 
+
+@router.get('/reset_stocks')
+async def get_detail(db: AsyncSession = Depends(get_db),
+                     current_user: dict = Depends(get_current_user)):
+    return await details.service.reset_stocks(db)
+
+
+
+
 @router.post('/component/add')
 async def add_component(item: DetailComponentCreate, db: AsyncSession = Depends(get_db),
                         current_user: dict = Depends(get_current_user)):
@@ -60,3 +69,5 @@ async def edit_component(item: DetailComponentEdit, db: AsyncSession = Depends(g
 async def delete_component(id: int, db: AsyncSession = Depends(get_db),
                             current_user: dict = Depends(get_current_user)):
     return await details.service.delete_component(db, id)
+
+

@@ -10,6 +10,8 @@ async def create_detail(db: AsyncSession, item: DetailCreate) -> None:
 async def get_detail(db: AsyncSession, article: int):
     return await crud.get_detail(db, article)
 
+async def reset_stocks(db: AsyncSession):
+    return await crud.reset_stocks(db)
 
 async def get_details(db: AsyncSession, filter: DetailGetFilter):
     return await crud.get_details(db, filter)

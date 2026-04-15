@@ -1,7 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import update
 from .model import Detail
 from .schema import DetailCreate, DetailGetFilter, DetailEdit, DetailTopup
+from ..bom.service import recount_availability
 
 
 async def create_detail(db: AsyncSession, item: DetailCreate) -> None:
@@ -13,6 +15,11 @@ async def create_detail(db: AsyncSession, item: DetailCreate) -> None:
 
 async def get_detail(db: AsyncSession, article: int) -> Detail | None:
     return await db.get(Detail, article)
+
+async def reset_stocks(db: AsyncSession) -> None:
+    query = update(Detail).values(stock=0)
+    await db.execute(query)
+    await db.commit()
 
 
 async def get_details(db: AsyncSession, filter: DetailGetFilter) -> list[Detail]:
