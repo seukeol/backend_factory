@@ -8,11 +8,6 @@ from domains.details.schema import DetailCreate, DetailEdit, DetailGetFilter, De
 router = APIRouter(prefix="/detail", tags=["details"])
 
 
-@router.get('/{article}')
-async def get_detail(article: int, db: AsyncSession = Depends(get_db),
-                     current_user: dict = Depends(get_current_user)):
-    return await details.service.get_detail(db, article)
-
 
 @router.post('/get')
 async def get_details(filter: DetailGetFilter, db: AsyncSession = Depends(get_db),
@@ -38,25 +33,16 @@ async def delete_detail(article: int, db: AsyncSession = Depends(get_db),
     return await details.service.delete_detail(db, article)
 
 
-
 @router.get('/reset_stocks')
 async def get_detail(db: AsyncSession = Depends(get_db),
                      current_user: dict = Depends(get_current_user)):
     return await details.service.reset_stocks(db)
 
 
-
-
 @router.post('/component/add')
 async def add_component(item: DetailComponentCreate, db: AsyncSession = Depends(get_db),
                         current_user: dict = Depends(get_current_user)):
     return await details.service.add_component(db, item)
-
-
-@router.get('/component/{parent_article}')
-async def get_components(parent_article: int, db: AsyncSession = Depends(get_db),
-                         current_user: dict = Depends(get_current_user)):
-    return await details.service.get_components(db, parent_article)
 
 
 @router.post('/component/edit')
@@ -71,3 +57,12 @@ async def delete_component(id: int, db: AsyncSession = Depends(get_db),
     return await details.service.delete_component(db, id)
 
 
+@router.get('/component/{parent_article}')
+async def get_components(parent_article: int, db: AsyncSession = Depends(get_db),
+                         current_user: dict = Depends(get_current_user)):
+    return await details.service.get_components(db, parent_article)
+
+@router.get('/{article}')
+async def get_detail(article: int, db: AsyncSession = Depends(get_db),
+                     current_user: dict = Depends(get_current_user)):
+    return await details.service.get_detail(db, article)
