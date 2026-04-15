@@ -3,7 +3,6 @@ from sqlalchemy.future import select
 from sqlalchemy import update
 from .model import Detail
 from .schema import DetailCreate, DetailGetFilter, DetailEdit, DetailTopup
-from ..bom.service import recount_availability
 
 
 async def create_detail(db: AsyncSession, item: DetailCreate) -> None:
