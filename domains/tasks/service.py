@@ -88,7 +88,7 @@ async def get_potential_order_tasks(db: AsyncSession, data) -> list:
     deficit = {}
 
     for component in components:
-        details += await get_all_components_list(db, component.detail_article, quantity)
+        details += await get_all_components_list(db, component.detail_article, quantity*с)
 
     for detail in details:
         availability = await _count_availability(db, detail[0].article)
