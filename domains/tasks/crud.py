@@ -16,12 +16,12 @@ async def get_task(db: AsyncSession, id: int) -> Task | None:
     return await db.get(Task, id)
 
 
-async def get_tasks(db: AsyncSession, filter: TaskGetFilter) -> list[Task]:
-    query = (
-        select(Task)
-        .join(Detail, Task.detail_article == Detail.article)
-        .where(Detail.availability > 0)
-    )
+async def get_tasks(db: AsyncSession, filter: TaskGetFilter, is_admin: bool = False) -> list[Task]:
+    query = select(Task).join(Detail, Task.detail_article == Detail.article)
+
+    if not is_admin:
+        query = query.where(Detail.availability > 0)
+
     if filter.order_id:
         query = query.where(Task.order_id == filter.order_id)
     if filter.detail_article:

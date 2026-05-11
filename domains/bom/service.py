@@ -9,8 +9,6 @@ async def _count_availability(db: AsyncSession, detail_article: int):
     detail_components = await get_components(db, detail_article)
     for detail_component in detail_components:
         detail_component_info = await get_detail(db, detail_component.child_article)
-        print(f"DEBUG detail_component: {detail_component}")
-        print(f"DEBUG detail_component_info: {detail_component_info}")
         minimum = min(minimum, detail_component_info.stock / detail_component.quantity)
     return minimum
 
@@ -33,19 +31,25 @@ async def recount_availability(db: AsyncSession, detail_article: int) -> None:
 
 
 async def get_all_components_list(db: AsyncSession, detail_article: int, quantity: float = 1) -> list:
-    from domains.cutting.crud import get_schemes_for_detail
+    import math
+    from domains.cutting.crud import get_schemes_for_detail, get_scheme_outputs
     detail_components = await get_components(db, detail_article)
     if not detail_components:
         schemes = await get_schemes_for_detail(db, detail_article)
         if not schemes:
             return []
         scheme = schemes[0]
+        outputs = await get_scheme_outputs(db, scheme.id)
+        output_qty = next((o.quantity for o in outputs if o.detail_article == detail_article), 1)
+        runs = math.ceil(quantity / output_qty)
+
         scheme_inputs = await get_components(db, -scheme.id)
         result = []
         for inp in scheme_inputs:
             input_detail = await get_detail(db, inp.child_article)
-            result.append((input_detail, inp.quantity))
-            result += await get_all_components_list(db, inp.child_article, inp.quantity)
+            input_qty = inp.quantity * runs
+            result.append((input_detail, input_qty))
+            result += await get_all_components_list(db, inp.child_article, input_qty)
         return result
 
     result = []

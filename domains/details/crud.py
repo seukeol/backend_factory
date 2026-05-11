@@ -13,13 +13,20 @@ async def create_detail(db: AsyncSession, item: DetailCreate) -> None:
 
 
 async def get_detail(db: AsyncSession, article: int) -> Detail | None:
-    return await db.get(Detail, article)
+    detail = await db.get(Detail, article)
+    if detail:
+        await db.refresh(detail)
+    return detail
+
 
 async def reset_stocks(db: AsyncSession) -> None:
     query = update(Detail).values(stock=0)
     await db.execute(query)
-    await db.commit()
 
+    availability_query = update(Detail).where(Detail.availability != 9999).values(availability=0)
+    await db.execute(availability_query)
+
+    await db.commit()
 
 async def get_details(db: AsyncSession, filter: DetailGetFilter) -> list[Detail]:
     query = select(Detail)
@@ -27,6 +34,8 @@ async def get_details(db: AsyncSession, filter: DetailGetFilter) -> list[Detail]
         query = query.where(Detail.article == filter.article)
     if filter.name:
         query = query.where(Detail.name == filter.name)
+    if filter.department:
+        query = query.where(Detail.department == filter.department)
     if filter.post:
         query = query.where(Detail.post == filter.post)
     result = await db.execute(query)

@@ -4,7 +4,7 @@ from database import get_db
 from app.utils.auth import create_access_token, get_current_user
 from domains import users
 from domains.users.schema import UserCreate, UserFilter, UserEdit, UserLogin, AdminLogin
-
+from domains.users.model import User
 router = APIRouter(prefix="/user", tags=["users"])
 
 @router.post('/get')
@@ -48,7 +48,7 @@ async def admin_login(admin: AdminLogin, db: AsyncSession = Depends(get_db)):
     return {"access_token": token, "token_type": "bearer"}
 
 @router.post('/admin/get_users')
-async def get_users(admin_id: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    user = await users.crud.get_user_from_db_by_id(db, admin_id.get("user_id"))
+async def get_users(admin_id: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    user = await users.crud.get_user_from_db_by_id(db, admin_id.id)
     filter = UserFilter(department=user.department, is_admin=False)
     return await users.crud.get_users(db, filter)

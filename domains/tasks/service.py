@@ -8,7 +8,7 @@ from domains.details.schema import DetailTopup
 from domains.details.service import topup_detail, get_detail, get_detail_posts, update_availability, get_components
 from domains.bom.service import recount_availability, get_all_components_list, _count_availability
 from ..details.crud import topdown_detail
-from ..goods.crud import get_good_components
+from ..goods.service import get_good_components
 from domains.posts.crud import get_posts
 
 async def get_task(db: AsyncSession, id: int) -> Task | None:
@@ -20,8 +20,8 @@ async def create_task(db: AsyncSession, data: TaskCreate) -> Task:
     return await crud.create_task(db, data)
 
 
-async def get_tasks(db: AsyncSession, filter: TaskGetFilter) -> list[Task]:
-    return await crud.get_tasks(db, filter)
+async def get_tasks(db: AsyncSession, filter: TaskGetFilter, is_admin: bool = False) -> list[Task]:
+    return await crud.get_tasks(db, filter, is_admin)
 
 
 async def get_tasks_for_order(db: AsyncSession, order_id: int) -> list[Task]:
@@ -88,30 +88,42 @@ async def get_potential_order_tasks(db: AsyncSession, data) -> list:
     deficit = {}
 
     for component in components:
-        details += await get_all_components_list(db, component.detail_article, quantity*с)
+        root_detail = await get_detail(db, component.detail_article)
+        await recount_availability(db, root_detail.article)
+        details.append((root_detail, quantity * component.quantity))
+        details += await get_all_components_list(db, component.detail_article, quantity * component.quantity)
 
+    # Суммируем все quantity по деталям
+    totals = {}
     for detail in details:
-        availability = await _count_availability(db, detail[0].article)
-        await update_availability(db, detail[0].article, availability)
+        art = detail[0].article
+        if art not in totals:
+            totals[art] = {'detail': detail[0], 'quantity': 0}
+        totals[art]['quantity'] += detail[1]
 
-        amount_needed = detail[1] - detail[0].stock
-        components_of_detail = await get_components(db, detail[0].article)
+    # Один раз обрабатываем каждую деталь
+    for art, data in totals.items():
+        detail_obj = data['detail']
+        total_qty = data['quantity']
+        availability = await _count_availability(db, art)
+        await update_availability(db, art, availability)
+
+        is_packaging = detail_obj.department == 'упаковка'
+        amount_needed = total_qty if is_packaging else total_qty - detail_obj.stock  # не вычитаем остаток для упаковки
+
+        components_of_detail = await get_components(db, art)
 
         if not components_of_detail:
             if amount_needed > 0:
-                deficit[detail[0].article] = deficit.get(detail[0].article, 0) + amount_needed
+                deficit[art] = amount_needed
         else:
-            art = detail[0].article
-            if art in result:
-                result[art]['amount_needed'] += amount_needed
-                result[art]['available'] += availability
-            else:
+            if amount_needed > 0:
                 result[art] = {
                     'detail_article': art,
-                    'detail_name': detail[0].name,
+                    'detail_name': detail_obj.name,
                     'amount_needed': amount_needed,
                     'available': availability,
-                    'department': detail[0].department,
+                    'department': detail_obj.department,
                     'posts': await get_detail_posts(db, art),
                 }
 
@@ -120,7 +132,15 @@ async def get_potential_order_tasks(db: AsyncSession, data) -> list:
         from domains.cutting.crud import get_scheme_by_id
 
         cutting_plan = await find_best_cutting_plan(db, deficit)
-        print(cutting_plan)
+
+        for scheme_id, times in cutting_plan.items():
+            scheme_inputs = await get_components(db, -scheme_id)
+            for inp in scheme_inputs:
+                if inp.child_article in deficit:
+                    deficit[inp.child_article] = inp.quantity * times
+
+        cutting_plan = await find_best_cutting_plan(db, deficit)
+
         for scheme_id, times in cutting_plan.items():
             scheme = await get_scheme_by_id(db, scheme_id)
             key = f"cutting_{scheme_id}"
@@ -135,7 +155,7 @@ async def get_potential_order_tasks(db: AsyncSession, data) -> list:
 
             scheme_inputs = await get_components(db, -scheme_id)
             for inp in scheme_inputs:
-                if inp.child_article in deficit:  # уже покрывается схемой, пропускаем
+                if inp.child_article in deficit:
                     continue
                 input_detail = await get_detail(db, inp.child_article)
                 input_amount_needed = inp.quantity * times

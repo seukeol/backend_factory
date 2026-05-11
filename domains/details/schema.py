@@ -5,6 +5,7 @@ from pydantic import BaseModel
 class DetailGetFilter(BaseModel):
     article: int | None = None
     name: str | None = None
+    department: str | None = None
     post: int | None = None
 
 
