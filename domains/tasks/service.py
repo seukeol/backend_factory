@@ -109,12 +109,12 @@ async def get_potential_order_tasks(db: AsyncSession, data) -> list:
         await update_availability(db, art, availability)
 
         is_packaging = detail_obj.department == 'упаковка'
-        amount_needed = total_qty if is_packaging else total_qty - detail_obj.stock  # не вычитаем остаток для упаковки
+        amount_needed = total_qty if is_packaging else total_qty - detail_obj.stock
 
         components_of_detail = await get_components(db, art)
 
         if not components_of_detail:
-            if amount_needed > 0:
+            if amount_needed > 0 and not is_packaging:  # <-- фикс
                 deficit[art] = amount_needed
         else:
             if amount_needed > 0:
@@ -132,7 +132,6 @@ async def get_potential_order_tasks(db: AsyncSession, data) -> list:
         from domains.cutting.crud import get_scheme_by_id
 
         cutting_plan = await find_best_cutting_plan(db, deficit)
-
         for scheme_id, times in cutting_plan.items():
             scheme_inputs = await get_components(db, -scheme_id)
             for inp in scheme_inputs:
