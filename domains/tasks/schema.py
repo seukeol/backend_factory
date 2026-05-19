@@ -42,5 +42,5 @@ class TaskGetFilter(BaseModel):
 
 
 class TaskPotentialOrder(BaseModel):
-    good_article: int
-    quantity: int
+    good_articles: list[int]
+    quantity: list[int]

@@ -51,3 +51,15 @@ async def topup_task(task: TaskTopup, db: AsyncSession = Depends(get_db),
 async def delete_task(id: int, db: AsyncSession = Depends(get_db),
                       current_user: User = Depends(get_current_user)):
     return await tasks.service.delete_task(db, id)
+
+
+from domains.tasks.service import get_afk_tasks, skip_afk
+
+@router.get("/tasks/afk")
+async def list_afk():
+    return await get_afk_tasks()
+
+@router.post("/tasks/{task_id}/skip-afk")
+async def skip_afk_route(task_id: int):
+    ok = await skip_afk(task_id)
+    return {"ok": ok}

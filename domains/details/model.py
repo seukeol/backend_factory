@@ -13,6 +13,7 @@ class Detail(Base):
     department: Mapped[str] = mapped_column(String())
     post: Mapped[int] = mapped_column(Integer())
     post_alt: Mapped[int] = mapped_column(Integer(), nullable=True)
+    length: Mapped[int] = mapped_column(Integer(), nullable=True)
 
 
 class DetailComponent(Base):

@@ -10,6 +10,12 @@ from domains.bom.service import recount_availability, get_all_components_list, _
 from ..details.crud import topdown_detail
 from ..goods.service import get_good_components
 from domains.posts.crud import get_posts
+import asyncio
+
+
+afk_skips: dict[int, list[asyncio.Event]] = {}
+lines_slots_dict = {"1": {"length": 230, "articles":[]}, "2": {"length": 230, "articles":[]}, "3": {"length": 230, "articles":[]}, "4": {"length": 230, "articles":[]}}
+
 
 async def get_task(db: AsyncSession, id: int) -> Task | None:
     return await crud.get_task(db, id)
@@ -30,6 +36,21 @@ async def get_tasks_for_order(db: AsyncSession, order_id: int) -> list[Task]:
 
 async def edit_task(db: AsyncSession, data: TaskEdit) -> None:
     await crud.edit_task(db, data)
+
+
+async def get_afk_tasks() -> list[int]:
+    """Вернуть id всех задач, висящих в АФК (сушка)"""
+    return list(afk_skips.keys())
+
+
+async def skip_afk(task_id: int) -> bool:
+    """Досрочно вывести задачу из АФК. Возвращает False если задача не в АФК"""
+    events = afk_skips.get(task_id)
+    if not events:
+        return False
+    for event in events:
+        event.set()
+    return True
 
 
 async def topup_task(db: AsyncSession, data: TaskTopup) -> Task:
@@ -59,13 +80,6 @@ async def topup_task(db: AsyncSession, data: TaskTopup) -> Task:
 
         return task
 
-    if task.department == 'упаковка':
-        order_data = OrderTopup(id=task.order_id, amount_done=data.amount_done)
-        await topup_order(db, order_data)
-    else:
-        detail_data = DetailTopup(article=task.detail_article, amount=data.amount_done)
-        await topup_detail(db, detail_data)
-
     detail_components = await get_components(db, task.detail_article)
     for component in detail_components:
         topdown_data = DetailTopup(
@@ -74,20 +88,71 @@ async def topup_task(db: AsyncSession, data: TaskTopup) -> Task:
         )
         await topdown_detail(db, topdown_data)
 
+    if task.department == 'упаковка':
+        order_data = OrderTopup(id=task.order_id, amount_done=data.amount_done)
+        await topup_order(db, order_data)
+    elif task.post == 3002: #суета крючки
+        detail = await get_detail(db, task.detail_article)
+        try:
+            if detail.name.lower().startswith('верхняя часть'):
+                info = lines_slots_dict["1"]
+            elif detail.name.lower().startswith('нижняя часть'):
+                info = lines_slots_dict["2"]
+            else:
+                for line_key, line_info in lines_slots_dict.items():
+                    if detail.length * data.amount_done <= line_info['length']:
+                        info = line_info
+                        break
+                else:
+                    return task
+
+            info['length'] -= detail.length * data.amount_done
+            for _ in range(data.amount_done):
+                info['articles'].append(task.detail_article)
+
+            event = asyncio.Event()
+            afk_skips.setdefault(task.id, []).append(event)
+            try:
+                await asyncio.wait_for(event.wait(), timeout=5400)
+            except asyncio.TimeoutError:
+                pass
+            finally:
+                afk_skips[task.id].remove(event)
+                if not afk_skips[task.id]:
+                    afk_skips.pop(task.id, None)
+                for _ in range(data.amount_done):
+                    try:
+                        info['articles'].remove(task.detail_article)
+                    except ValueError:
+                        pass
+                info['length'] += detail.length * data.amount_done
+
+        except Exception:
+            return task #суета крючки конец
+
+        detail_data = DetailTopup(article=task.detail_article, amount=data.amount_done)
+        await topup_detail(db, detail_data)
+    else:
+        detail_data = DetailTopup(article=task.detail_article, amount=data.amount_done)
+        await topup_detail(db, detail_data)
+
     await recount_availability(db, task.detail_article)
 
     return task
 
 
 async def get_potential_order_tasks(db: AsyncSession, data) -> list:
-    article = data.good_article
-    quantity = data.quantity
-    components = await get_good_components(db, article)
+    components = []
+
+    for article, quantity in zip(data.good_articles, data.quantity):
+        article_components = await get_good_components(db, article)
+        components += [(c, quantity) for c in article_components]
+
     details = []
     result = {}
     deficit = {}
 
-    for component in components:
+    for component, quantity in components:
         root_detail = await get_detail(db, component.detail_article)
         await recount_availability(db, root_detail.article)
         details.append((root_detail, quantity * component.quantity))
@@ -114,7 +179,7 @@ async def get_potential_order_tasks(db: AsyncSession, data) -> list:
         components_of_detail = await get_components(db, art)
 
         if not components_of_detail:
-            if amount_needed > 0 and not is_packaging:  # <-- фикс
+            if amount_needed > 0 and not is_packaging:
                 deficit[art] = amount_needed
         else:
             if amount_needed > 0:
